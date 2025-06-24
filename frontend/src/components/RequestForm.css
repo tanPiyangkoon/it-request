@@ -1,0 +1,138 @@
+body {
+  background: #f4f6fb;
+  min-height: 100vh;
+}
+
+/* ปรับเป็นการ์ดแนวนอนเต็มหน้าจอ */
+.form-container {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  max-width: 1100px;
+  margin: 3rem auto;
+  background: rgba(255,255,255,0.97);
+  border-radius: 18px;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.10);
+  padding: 0;
+  min-height: 380px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-container::before {
+  content: none;
+}
+
+.form-image {
+  flex: 1.2;
+  background: linear-gradient(135deg, #1976d2 60%, #42a5f5 100%);
+  border-radius: 18px 0 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 2.1rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 2rem 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.form-fields {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.form-fields h2 {
+  text-align: left;
+  margin-bottom: 1.5rem;
+  font-size: 1.7rem;
+  font-weight: bold;
+  color: #222;
+}
+
+.form-fields input,
+.form-fields textarea {
+  margin-bottom: 1.1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #f8f9fa;
+  transition: border 0.2s;
+}
+
+.form-fields input:focus,
+.form-fields textarea:focus {
+  border: 1.5px solid #1976d2;
+  outline: none;
+  background: #fff;
+}
+
+.form-fields textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-fields button {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.95rem 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 0.5rem;
+}
+
+.form-fields button:hover {
+  background: #1256a3;
+}
+
+.success-msg {
+  background: #e6f9ed;
+  color: #1b7e3c;
+  border: 1px solid #b6e2c7;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.error-msg {
+  background: #ffeaea;
+  color: #d32f2f;
+  border: 1px solid #f5c2c7;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+  .form-container {
+    flex-direction: column;
+    min-height: unset;
+    max-width: 98vw;
+  }
+  .form-image {
+    border-radius: 18px 18px 0 0;
+    font-size: 1.3rem;
+    padding: 1.5rem 0.5rem;
+  }
+  .form-fields {
+    padding: 1.5rem 1rem 1rem 1rem;
+  }
+}
