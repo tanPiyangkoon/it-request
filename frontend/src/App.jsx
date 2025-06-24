@@ -1,20 +1,36 @@
-import React, {useState} from 'react';
-import RequestForm from './components/RequestForm';
+import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
+import RequestForm from './components/RequestForm';
+import RequestList from './components/RequestList';
+import Login from './components/Login';
 
 function App() {
-  const [selectedMenu, setSelectedMenu] = useState('form');
+  const [user, setUser] = useState(null); // { id, name, role }
+  const [page, setPage] = useState('form');
 
-  
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
+
   return (
     <div style={{ display: 'flex' }}>
-      <Sidebar onSelect={setSelectedMenu} />
-     <div style={{ marginLeft: '200px', padding: '2rem', width: '100%' }}>
-        {selectedMenu === 'form' && <RequestForm />}
-        {selectedMenu === 'view' && <p>หน้านี้จะโชว์รายการคำขอ</p>}
-        {selectedMenu === 'settings' && <p>ตั้งค่า (เช่น เปลี่ยนสถานะ ฯลฯ)</p>}
+      <Sidebar onSelect={setPage} role={user.role} />
+      <div style={{ marginLeft: 220, width: '100%' }}>
+        <div style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <b>สวัสดี,</b> {user.name} <span style={{ color: '#1976d2', fontWeight: 500 }}>({user.role})</span>
+          </div>
+          <button onClick={() => setUser(null)} style={{ background: '#d32f2f', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.2rem', fontWeight: 500, cursor: 'pointer' }}>ออกจากระบบ</button>
+        </div>
+        {user.role === 'user' && page === 'form' && <RequestForm userId={user.id} />}
+        {page === 'view' && (
+          <RequestList
+            role={user.role}
+            userId={user.id}
+          />
+        )}
+        {/* เพิ่มหน้าอื่น ๆ ตามต้องการ */}
       </div>
-      
     </div>
   );
 }
