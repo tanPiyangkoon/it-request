@@ -7,9 +7,12 @@ function RequestForm() {
     full_name: '',
     employee_id: '',
     department: '',
+    position: '',
     email: '',
+    phone: '',
     description: ''
   });
+  const [file, setFile] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -18,10 +21,12 @@ function RequestForm() {
     setSuccessMsg('');
     setErrorMsg('');
     try {
+      const data = new FormData();
+      Object.entries(formData).forEach(([key, value]) => data.append(key, value));
+      if (file) data.append('image', file);
       const res = await fetch('http://localhost:3001/api/request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: data
       });
       if (res.ok) {
         setSuccessMsg('ส่งคำขอเรียบร้อยแล้ว');
@@ -29,9 +34,12 @@ function RequestForm() {
           full_name: '',
           employee_id: '',
           department: '',
+          position: '',
           email: '',
+          phone: '',
           description: ''
         });
+        setFile(null);
       } else {
         setErrorMsg('เกิดข้อผิดพลาดในการส่งข้อมูล');
       }
@@ -41,7 +49,7 @@ function RequestForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="form-container">
+    <form onSubmit={handleSubmit} className="form-container" encType="multipart/form-data">
       <div className="form-image">
         <img src={itWorkerImg} alt="IT worker" style={{maxWidth: '100%', maxHeight: '260px', objectFit: 'contain'}} />
       </div>
@@ -68,10 +76,23 @@ function RequestForm() {
           required
         />
         <input
+          placeholder="ตำแหน่ง"
+          value={formData.position}
+          onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+          required
+        />
+        <input
           placeholder="Email"
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          required
+        />
+        <input
+          placeholder="เบอร์โทร"
+          type="tel"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           required
         />
         <textarea
@@ -80,6 +101,12 @@ function RequestForm() {
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           required
         ></textarea>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={e => setFile(e.target.files[0])}
+          style={{ marginBottom: '1.1rem' }}
+        />
         <button type="submit">ส่งคำขอ</button>
       </div>
     </form>
