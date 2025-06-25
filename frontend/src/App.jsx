@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import RequestForm from './components/RequestForm';
 import RequestList from './components/RequestList';
 import Login from './components/Login';
+import Dashboard from './components/Dashboard';
 
 function App() {
   const [user, setUser] = useState(null); // { id, name, role }
@@ -22,6 +23,9 @@ function App() {
           </div>
           <button onClick={() => setUser(null)} style={{ background: '#d32f2f', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.2rem', fontWeight: 500, cursor: 'pointer' }}>ออกจากระบบ</button>
         </div>
+        {user.role === 'admin' && page === 'dashboard' && (
+          <Dashboard />
+        )}
         {user.role === 'user' && page === 'form' && <RequestForm userId={user.id} />}
         {page === 'view' && (
           <RequestList

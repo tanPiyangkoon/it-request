@@ -1,53 +1,48 @@
 import React, { useState } from 'react';
-import './Sidebar.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Sidebar({ onSelect, role }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <>
-      <div className={`sidebar${collapsed ? ' collapsed' : ''}`} style={{ left: collapsed ? '-220px' : '0', transition: 'left 0.25s' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>เมนู</h2>
+      <div className={`bg-warning text-white position-fixed h-100 p-4 ${collapsed ? 'sidebar-collapsed' : ''}`} style={{ width: collapsed ? 0 : 220, left: collapsed ? -220 : 0, top: 0, transition: 'left 0.25s, width 0.25s', zIndex: 1000, overflow: 'hidden' }}>
+        <div className="d-flex align-items-center justify-content-between mb-4">
+          <h2 className="m-0 fs-5 fw-bold">เมนู</h2>
           <button
             onClick={() => setCollapsed(c => !c)}
-            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', marginLeft: 8 }}
+            className="btn btn-link text-white p-0 ms-2 fs-4"
             aria-label={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
+            style={{ textDecoration: 'none' }}
           >
             {collapsed ? '☰' : '⮜'}
           </button>
         </div>
-        <ul style={{ display: collapsed ? 'none' : 'block', marginTop: 20 }}>
+        <ul className="nav flex-column" style={{ display: collapsed ? 'none' : 'block' }}>
           {role === 'admin' ? (
             <>
-              <li onClick={() => onSelect('dashboard')}>Dashboard</li>
-              <li onClick={() => onSelect('view')}>รายการคำขอ</li>
-              <li onClick={() => onSelect('settings')}>ตั้งค่า</li>
+              <li className="nav-item mb-2">
+                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('dashboard')}>Dashboard</button>
+              </li>
+              <li className="nav-item mb-2">
+                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('view')}>รายการคำขอ</button>
+              </li>
+              <li className="nav-item mb-2">
+                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('settings')}>ตั้งค่า</button>
+              </li>
             </>
           ) : (
-            <>
-              <li onClick={() => onSelect('form')}>แบบฟอร์มแจ้งปัญหา</li>
-            </>
+            <li className="nav-item mb-2">
+              <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('form')}>แบบฟอร์มแจ้งปัญหา</button>
+            </li>
           )}
         </ul>
       </div>
       {collapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          style={{
-            position: 'fixed',
-            top: 24,
-            left: 12,
-            zIndex: 1001,
-            background: '#1976d2',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            fontSize: 22,
-            padding: '6px 12px',
-            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.13)',
-            cursor: 'pointer'
-          }}
+          className="btn btn-warning position-fixed"
+          style={{ top: 24, left: 12, zIndex: 1001, borderRadius: 6, fontSize: 22, padding: '6px 12px', boxShadow: '0 2px 8px rgba(255,152,0,0.13)' }}
           aria-label="ขยายเมนู"
         >
           ☰
