@@ -17,10 +17,10 @@ function App() {
     <div style={{ display: 'flex' }}>
       <Sidebar onSelect={setPage} role={user.role} />
       <div style={{ marginLeft: 220, width: '100%' }}>
-        <div style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <b>สวัสดี,</b> {user.name} <span style={{ color: '#1976d2', fontWeight: 500 }}>({user.role})</span>
-          </div>
+        <div style={{ padding: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
+          <span className="fw-semibold" style={{ color: '#333', fontFamily: 'Segoe UI, sans-serif', fontSize: 15 }}>
+            สวัสดี, {user.name} <span style={{ color: '#1976d2', fontWeight: 500 }}>({user.role})</span>
+          </span>
           <button onClick={() => setUser(null)} style={{ background: '#d32f2f', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.2rem', fontWeight: 500, cursor: 'pointer' }}>ออกจากระบบ</button>
         </div>
         {user.role === 'admin' && page === 'dashboard' && (

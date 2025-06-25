@@ -1,53 +1,79 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-function Sidebar({ onSelect, role }) {
-  const [collapsed, setCollapsed] = useState(false);
+function Sidebar({ onSelect, role, user }) {
+  const [open, setOpen] = useState(false);
 
   return (
     <>
-      <div className={`bg-warning text-white position-fixed h-100 p-4 ${collapsed ? 'sidebar-collapsed' : ''}`} style={{ width: collapsed ? 0 : 220, left: collapsed ? -220 : 0, top: 0, transition: 'left 0.25s, width 0.25s', zIndex: 1000, overflow: 'hidden' }}>
-        <div className="d-flex align-items-center justify-content-between mb-4">
-          <h2 className="m-0 fs-5 fw-bold">เมนู</h2>
-          <button
-            onClick={() => setCollapsed(c => !c)}
-            className="btn btn-link text-white p-0 ms-2 fs-4"
-            aria-label={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
-            style={{ textDecoration: 'none' }}
-          >
-            {collapsed ? '☰' : '⮜'}
-          </button>
-        </div>
-        <ul className="nav flex-column" style={{ display: collapsed ? 'none' : 'block' }}>
+      {/* Hamburger icon always visible */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="btn btn-warning position-fixed d-flex align-items-center justify-content-center"
+          style={{ top: 20, left: 20, zIndex: 1101, borderRadius: 6, fontSize: 24, width: 44, height: 44, boxShadow: '0 2px 8px rgba(255,152,0,0.13)' }}
+          aria-label="เปิดเมนู"
+        >
+          <span className="fw-bold text-dark">☰</span>
+        </button>
+      )}
+
+      {/* Overlay */}
+      {open && (
+        <div
+          className="position-fixed w-100 h-100"
+          style={{ top: 0, left: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, transition: 'background 0.2s' }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <nav
+        className={`bg-warning text-dark position-fixed h-100 p-4 shadow-lg`}
+        style={{
+          width: 240,
+          left: open ? 0 : -260,
+          top: 0,
+          transition: 'left 0.28s cubic-bezier(.4,1.2,.4,1)',
+          zIndex: 1102,
+          boxShadow: open ? '2px 0 16px rgba(255,152,0,0.18)' : 'none',
+          borderTopRightRadius: 18,
+          borderBottomRightRadius: 18,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        aria-label="Sidebar navigation"
+      >
+        <button
+          onClick={() => setOpen(false)}
+          className="btn btn-link text-dark p-0 ms-2 fs-3 position-absolute"
+          aria-label="ปิดเมนู"
+          style={{ textDecoration: 'none', top: 18, right: 12 }}
+        >
+          ⮜
+        </button>
+        <div className="mb-4" style={{ height: 32 }} />
+        <ul className="nav flex-column mt-2" style={{ flex: 1 }}>
           {role === 'admin' ? (
             <>
               <li className="nav-item mb-2">
-                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('dashboard')}>Dashboard</button>
+                <button className="nav-link text-dark bg-transparent border-0 text-start w-100" onClick={() => { onSelect('dashboard'); setOpen(false); }}>Dashboard</button>
               </li>
               <li className="nav-item mb-2">
-                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('view')}>รายการคำขอ</button>
+                <button className="nav-link text-dark bg-transparent border-0 text-start w-100" onClick={() => { onSelect('view'); setOpen(false); }}>รายการคำขอ</button>
               </li>
               <li className="nav-item mb-2">
-                <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('settings')}>ตั้งค่า</button>
+                <button className="nav-link text-dark bg-transparent border-0 text-start w-100" onClick={() => { onSelect('settings'); setOpen(false); }}>ตั้งค่า</button>
               </li>
             </>
           ) : (
             <li className="nav-item mb-2">
-              <button className="nav-link text-white bg-transparent border-0 text-start" onClick={() => onSelect('form')}>แบบฟอร์มแจ้งปัญหา</button>
+              <button className="nav-link text-dark bg-transparent border-0 text-start w-100" onClick={() => { onSelect('form'); setOpen(false); }}>แบบฟอร์มแจ้งปัญหา</button>
             </li>
           )}
         </ul>
-      </div>
-      {collapsed && (
-        <button
-          onClick={() => setCollapsed(false)}
-          className="btn btn-warning position-fixed"
-          style={{ top: 24, left: 12, zIndex: 1001, borderRadius: 6, fontSize: 22, padding: '6px 12px', boxShadow: '0 2px 8px rgba(255,152,0,0.13)' }}
-          aria-label="ขยายเมนู"
-        >
-          ☰
-        </button>
-      )}
+        <div style={{ height: 12 }} />
+      </nav>
     </>
   );
 }
