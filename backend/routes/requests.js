@@ -23,16 +23,21 @@ const users = [
   { id: 'admin', name: 'Admin', role: 'admin', password: 'admin123' }
 ];
 
-// Login endpoint (ยังใช้ mock user)
-router.post('/login', (req, res) => {
+// Login endpoint (เช็คกับ DB จริง)
+router.post('/login', async (req, res) => {
   const { userId, password } = req.body;
-  const found = users.find(u => u.id === userId && u.password === password);
-  if (found) {
-    // Don't send password back
-    const { password, ...userData } = found;
-    res.json({ success: true, user: userData });
-  } else {
-    res.status(401).json({ success: false, message: 'รหัสผ่านหรือผู้ใช้ไม่ถูกต้อง' });
+  try {
+    const result = await pool.query(
+      'SELECT user_id, name, role, email FROM users WHERE user_id = $1 AND password = $2',
+      [userId, password]
+    );
+    if (result.rows.length > 0) {
+      res.json({ success: true, user: result.rows[0] });
+    } else {
+      res.status(401).json({ success: false, message: 'รหัสผ่านหรือผู้ใช้ไม่ถูกต้อง' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database error', details: err.message });
   }
 });
 
