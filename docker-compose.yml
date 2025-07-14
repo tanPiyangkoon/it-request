@@ -38,18 +38,14 @@ services:
     command: npm start
 
   frontend:
-    build: ./frontend
+    image: nginx:alpine
     restart: always
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - backend
-    working_dir: /usr/src/app
-    command: npm run dev -- --host
-    environment:
-      - NODE_ENV=production
     volumes:
-      - ./frontend:/usr/src/app
+      - ./frontend/dist:/usr/share/nginx/html:ro
 
 volumes:
   db_data:
