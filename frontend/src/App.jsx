@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import RequestForm from './components/RequestForm';
 import RequestList from './components/RequestList';
@@ -6,8 +6,21 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 
 function App() {
-  const [user, setUser] = useState(null); // { id, name, role }
+  const [user, setUser] = useState(() => {
+    // ดึง user จาก localStorage ถ้ามี
+    const saved = localStorage.getItem('itreq_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [page, setPage] = useState('form');
+
+  // บันทึก user ลง localStorage ทุกครั้งที่ login/logout
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('itreq_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('itreq_user');
+    }
+  }, [user]);
 
   if (!user) {
     return <Login onLogin={setUser} />;

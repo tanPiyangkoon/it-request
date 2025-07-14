@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: it_request_db
+      POSTGRES_USER: itadmin
+      POSTGRES_PASSWORD: itpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itadmin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      - PGHOST=db
+      - PGUSER=itadmin
+      - PGPASSWORD=itpassword
+      - PGDATABASE=it_request_db
+      - PGPORT=5432
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/usr/src/app/uploads
+    working_dir: /usr/src/app
+    command: npm start
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    working_dir: /usr/src/app
+    command: npm run dev -- --host
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./frontend:/usr/src/app
+
+volumes:
+  db_data:

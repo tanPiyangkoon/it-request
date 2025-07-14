@@ -68,4 +68,26 @@ router.get('/requests', async (req, res) => {
   }
 });
 
+
+// PUT /api/requests/:id/status - อัปเดตสถานะคำขอ
+router.put('/requests/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!['pending', 'done', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE it_requests SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
+});
+
 module.exports = router;
