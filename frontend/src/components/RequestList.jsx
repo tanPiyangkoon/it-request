@@ -67,6 +67,7 @@ function RequestList({ role, userId }) {
                 <th>ตำแหน่ง</th>
                 <th>อีเมล</th>
                 <th>เบอร์โทร</th>
+                <th>หมวดหมู่</th>
                 <th>รายละเอียด</th>
                 <th>สถานะ</th>
               </tr>
@@ -80,6 +81,23 @@ function RequestList({ role, userId }) {
                   <td>{req.position}</td>
                   <td>{req.email}</td>
                   <td>{req.phone}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      background: req.category === 'ฮาร์ดแวร์' ? '#e3f2fd' :
+                                 req.category === 'ซอฟต์แวร์' ? '#f3e5f5' :
+                                 req.category === 'เครือข่าย' ? '#e8f5e9' : '#fff3e0',
+                      color: req.category === 'ฮาร์ดแวร์' ? '#1976d2' :
+                             req.category === 'ซอฟต์แวร์' ? '#7b1fa2' :
+                             req.category === 'เครือข่าย' ? '#388e3c' : '#f57c00'
+                    }}>
+                      {req.category || 'อื่นๆ'}
+                    </span>
+                  </td>
                   <td>{req.description}</td>
                   <td>
                     <span className={`status-badge status-${(req.status || 'pending').toLowerCase()}`}>

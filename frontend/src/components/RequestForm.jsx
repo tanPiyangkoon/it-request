@@ -10,7 +10,8 @@ function RequestForm() {
     position: '',
     email: '',
     phone: '',
-    description: ''
+    description: '',
+    category: 'อื่นๆ'
   });
   const [file, setFile] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
@@ -25,7 +26,8 @@ function RequestForm() {
       { key: 'position', label: 'ตำแหน่ง' },
       { key: 'email', label: 'Email' },
       { key: 'phone', label: 'เบอร์โทร' },
-      { key: 'description', label: 'รายละเอียด' }
+      { key: 'description', label: 'รายละเอียด' },
+      { key: 'category', label: 'หมวดหมู่' }
     ];
     const missing = requiredFields.filter(f => !formData[f.key]).map(f => f.label);
     setMissingFields(missing);
@@ -60,7 +62,8 @@ function RequestForm() {
           position: '',
           email: '',
           phone: '',
-          description: ''
+          description: '',
+          category: 'อื่นๆ'
         });
         setFile(null);
       } else {
@@ -96,7 +99,8 @@ function RequestForm() {
             position: 'Support',
             email: 'somchai@example.com',
             phone: '0812345678',
-            description: 'คอมพิวเตอร์เปิดไม่ติด รบกวนช่วยตรวจสอบครับ'
+            description: 'คอมพิวเตอร์เปิดไม่ติด รบกวนช่วยตรวจสอบครับ',
+            category: 'ฮาร์ดแวร์'
           })}
         >
           กรอกข้อมูลตัวอย่าง
@@ -198,6 +202,17 @@ function RequestForm() {
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           style={{width: '100%', maxWidth: 400, padding: '0.8rem 1rem', borderRadius: 8, border: '1.5px solid #ffe0b2', marginBottom: 14, fontSize: '1rem', background: '#fff8e1', boxSizing: 'border-box', boxShadow: '0 1px 4px rgba(255,152,0,0.06)'}}
         />
+        <select
+          value={formData.category}
+          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+          style={{width: '100%', maxWidth: 400, padding: '0.8rem 1rem', borderRadius: 8, border: '1.5px solid #ffe0b2', marginBottom: 14, fontSize: '1rem', background: '#fff8e1', boxSizing: 'border-box', boxShadow: '0 1px 4px rgba(255,152,0,0.06)', cursor: 'pointer'}}
+        >
+          <option value="">-- เลือกหมวดหมู่ --</option>
+          <option value="ฮาร์ดแวร์">ฮาร์ดแวร์</option>
+          <option value="ซอฟต์แวร์">ซอฟต์แวร์</option>
+          <option value="เครือข่าย">เครือข่าย</option>
+          <option value="อื่นๆ">อื่นๆ</option>
+        </select>
         <textarea
           placeholder="รายละเอียด"
           value={formData.description}

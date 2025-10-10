@@ -52,6 +52,7 @@ function Dashboard() {
                 <th>ชื่อ</th>
                 <th>เลขบัตรพนักงาน</th>
                 <th>แผนก</th>
+                <th>หมวดหมู่</th>
                 <th>รายละเอียด</th>
                 <th>สถานะ</th>
                 <th>วันที่</th>
@@ -59,15 +60,32 @@ function Dashboard() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#888' }}>กำลังโหลด...</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center', color: '#888' }}>กำลังโหลด...</td></tr>
               ) : requests.length === 0 ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#888' }}>ไม่มีข้อมูล</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center', color: '#888' }}>ไม่มีข้อมูล</td></tr>
               ) : requests.map((req, idx) => (
                 <tr key={req.id || idx}>
                   <td>{idx + 1}</td>
                   <td>{req.full_name}</td>
                   <td>{req.employee_id}</td>
                   <td>{req.department}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      background: req.category === 'ฮาร์ดแวร์' ? '#e3f2fd' :
+                                 req.category === 'ซอฟต์แวร์' ? '#f3e5f5' :
+                                 req.category === 'เครือข่าย' ? '#e8f5e9' : '#fff3e0',
+                      color: req.category === 'ฮาร์ดแวร์' ? '#1976d2' :
+                             req.category === 'ซอฟต์แวร์' ? '#7b1fa2' :
+                             req.category === 'เครือข่าย' ? '#388e3c' : '#f57c00'
+                    }}>
+                      {req.category || 'อื่นๆ'}
+                    </span>
+                  </td>
                   <td>{req.description}</td>
                   <td>
                     <span className={`status-badge status-${(req.status || 'pending').toLowerCase()}`}>

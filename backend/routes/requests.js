@@ -44,14 +44,14 @@ router.post('/login', async (req, res) => {
 // Enable DB-backed endpoints
 router.post('/request', upload.single('image'), async (req, res) => {
   try {
-    const { full_name, employee_id, department, position, email, phone, description } = req.body;
+    const { full_name, employee_id, department, position, email, phone, description, category } = req.body;
     let image_url = null;
     if (req.file) {
       image_url = '/uploads/' + req.file.filename;
     }
     const result = await pool.query(
-      'INSERT INTO it_requests (full_name, employee_id, department, position, email, phone, description, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [full_name, employee_id, department, position, email, phone, description, image_url]
+      'INSERT INTO it_requests (full_name, employee_id, department, position, email, phone, description, category, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [full_name, employee_id, department, position, email, phone, description, category || 'อื่นๆ', image_url]
     );
     res.json(result.rows[0]);
   } catch (err) {
