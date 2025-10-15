@@ -1,0 +1,749 @@
+// =====================================
+// ADVANCED JENKINSFILE FEATURES
+// =====================================
+
+// Shared Libraries Configuration
+@Library('jenkins-shared-library@master') _
+
+// Import custom classes
+import groovy.json.JsonSlurper
+import java.text.SimpleDateFormat
+
+pipeline {
+    agent {
+        // ใช้ Docker agent สำหรับ build environment ที่สะอาด
+        docker {
+            image 'jenkins/agent:alpine-jdk11'
+            label 'docker-agent'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+        
+        // หรือใช้ Kubernetes agent
+        // kubernetes {
+        //     yaml """
+        //         apiVersion: v1
+        //         kind: Pod
+        //         metadata:
+        //           labels:
+        //             jenkins: agent
+        //         spec:
+        //           serviceAccountName: jenkins
+        //           containers:
+        //           - name: docker
+        //             image: docker:20.10.9-dind
+        //             tty: true
+        //             securityContext:
+        //               privileged: true
+        //           - name: kubectl
+        //             image: bitnami/kubectl:latest
+        //             tty: true
+        //           - name: helm
+        //             image: alpine/helm:latest
+        //             tty: true
+        //     """
+        // }
+    }
+    
+    // Parameters - ให้ผู้ใช้สามารถกำหนดค่าเมื่อรัน build manually
+    parameters {
+        // เลือก environment ที่จะ deploy
+        choice(
+            name: 'DEPLOY_ENVIRONMENT',
+            choices: ['development', 'staging', 'production', 'none'],
+            description: 'Select deployment environment'
+        )
+        
+        // กำหนด version tag manually
+        string(
+            name: 'CUSTOM_VERSION',
+            defaultValue: '',
+            description: 'Custom version tag (leave empty for auto-generated)'
+        )
+        
+        // เลือกว่าจะรัน tests หรือไม่
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: 'Skip running tests'
+        )
+        
+        // เลือกว่าจะทำ security scan หรือไม่
+        booleanParam(
+            name: 'SECURITY_SCAN',
+            defaultValue: true,
+            description: 'Perform security scanning'
+        )
+        
+        // Rollback options
+        booleanParam(
+            name: 'ROLLBACK',
+            defaultValue: false,
+            description: 'Rollback to previous version'
+        )
+        
+        string(
+            name: 'ROLLBACK_VERSION',
+            defaultValue: '',
+            description: 'Version to rollback to (if ROLLBACK is true)'
+        )
+    }
+    
+    // Triggers - กำหนดว่าจะ trigger pipeline อย่างไร
+    triggers {
+        // Poll SCM ทุก 5 นาที (ไม่แนะนำ, ควรใช้ webhooks)
+        // pollSCM('H/5 * * * *')
+        
+        // Trigger ตามเวลา (Cron)
+        // cron('H 2 * * *')  // ทุกวัน 2am
+        
+        // GitHub webhook trigger
+        githubPush()
+        
+        // Trigger เมื่อมี upstream project build เสร็จ
+        // upstream(upstreamProjects: 'job1,job2', threshold: hudson.model.Result.SUCCESS)
+    }
+    
+    environment {
+        // Dynamic environment variables
+        BUILD_TIMESTAMP = sh(script: "date +'%Y%m%d-%H%M%S'", returnStdout: true).trim()
+        
+        // Conditional environment variables
+        DEPLOY_ENV = "${params.DEPLOY_ENVIRONMENT ?: determineEnvironment()}"
+        
+        // Version management
+        VERSION = "${params.CUSTOM_VERSION ?: generateVersion()}"
+        
+        // Feature flags
+        ENABLE_PERFORMANCE_TEST = "${BRANCH_NAME == 'main' ? 'true' : 'false'}"
+        ENABLE_SECURITY_SCAN = "${params.SECURITY_SCAN}"
+        
+        // External services
+        JIRA_SITE = 'JIRA'
+        CONFLUENCE_SITE = 'Confluence'
+    }
+    
+    stages {
+        // =====================================
+        // INITIALIZATION STAGES
+        // =====================================
+        
+        stage('Initialize') {
+            steps {
+                script {
+                    // แสดง Jenkins environment info
+                    sh '''
+                        echo "=== Jenkins Environment ==="
+                        echo "Jenkins URL: $JENKINS_URL"
+                        echo "Job Name: $JOB_NAME"
+                        echo "Workspace: $WORKSPACE"
+                        echo "Node Name: $NODE_NAME"
+                        echo "Executor: $EXECUTOR_NUMBER"
+                        java -version
+                        docker version
+                        kubectl version --client || true
+                    '''
+                    
+                    // Load configuration from file
+                    def config = readYaml file: 'jenkins-config.yaml'
+                    env.APP_CONFIG = config.toString()
+                    
+                    // Check for hotfix branch
+                    if (BRANCH_NAME.startsWith('hotfix/')) {
+                        env.IS_HOTFIX = 'true'
+                        env.PRIORITY = 'high'
+                    }
+                    
+                    // Set build display name and description
+                    currentBuild.displayName = "#${BUILD_NUMBER} - ${VERSION}"
+                    currentBuild.description = "Branch: ${BRANCH_NAME}\nEnvironment: ${DEPLOY_ENV}"
+                }
+            }
+        }
+        
+        // =====================================
+        // ROLLBACK STAGE (ถ้าเลือก rollback)
+        // =====================================
+        
+        stage('Rollback') {
+            when {
+                expression { params.ROLLBACK == true }
+            }
+            steps {
+                script {
+                    echo "🔄 Rolling back to version: ${params.ROLLBACK_VERSION}"
+                    
+                    // Update K8s manifests with rollback version
+                    withCredentials([usernamePassword(
+                        credentialsId: GIT_CREDENTIALS_ID,
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )]) {
+                        sh '''
+                            git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/yourusername/my-app-k8s-config.git k8s-rollback
+                            cd k8s-rollback
+                            
+                            # Update to rollback version
+                            cd overlays/${DEPLOY_ENV}
+                            sed -i "s|newTag:.*|newTag: ${ROLLBACK_VERSION}|g" kustomization.yaml
+                            
+                            git add .
+                            git commit -m "🔄 Rollback ${DEPLOY_ENV} to version ${ROLLBACK_VERSION}"
+                            git push origin main
+                            
+                            cd ${WORKSPACE}
+                            rm -rf k8s-rollback
+                        '''
+                    }
+                    
+                    // Trigger ArgoCD sync
+                    sh """
+                        argocd app sync my-app-${DEPLOY_ENV} --revision ${ROLLBACK_VERSION}
+                    """
+                    
+                    // Skip other stages
+                    currentBuild.result = 'SUCCESS'
+                    error("Rollback completed - skipping remaining stages")
+                }
+            }
+        }
+        
+        // =====================================
+        // QUALITY GATES
+        // =====================================
+        
+        stage('Quality Gates') {
+            parallel {
+                stage('SonarQube Analysis') {
+                    when {
+                        expression { fileExists('sonar-project.properties') }
+                    }
+                    steps {
+                        withSonarQubeEnv('SonarQube') {
+                            script {
+                                if (fileExists('pom.xml')) {
+                                    sh 'mvn sonar:sonar'
+                                } else if (fileExists('package.json')) {
+                                    sh 'npm run sonar'
+                                } else {
+                                    sh '''
+                                        sonar-scanner \
+                                          -Dsonar.projectKey=my-app \
+                                          -Dsonar.sources=. \
+                                          -Dsonar.host.url=$SONAR_HOST_URL \
+                                          -Dsonar.login=$SONAR_AUTH_TOKEN
+                                    '''
+                                }
+                            }
+                        }
+                        
+                        // Wait for Quality Gate
+                        timeout(time: 1, unit: 'HOURS') {
+                            waitForQualityGate abortPipeline: true
+                        }
+                    }
+                }
+                
+                stage('SAST - Static Security Testing') {
+                    when {
+                        expression { params.SECURITY_SCAN == true }
+                    }
+                    steps {
+                        script {
+                            // Checkmarx scan
+                            // step([$class: 'CxScanBuilder',
+                            //     projectName: 'my-app',
+                            //     preset: '100',
+                            //     teamPath: '\\CxServer\\MyTeam',
+                            //     serverUrl: 'https://checkmarx.example.com'
+                            // ])
+                            
+                            // หรือใช้ Fortify
+                            // sh '''
+                            //     sourceanalyzer -b my-app -clean
+                            //     sourceanalyzer -b my-app src/**/*
+                            //     sourceanalyzer -b my-app -scan -f results.fpr
+                            // '''
+                            
+                            // หรือใช้ Semgrep
+                            sh '''
+                                docker run --rm -v "${PWD}:/src" \
+                                    returntocorp/semgrep \
+                                    --config=auto --json -o semgrep-results.json
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Dependency Check') {
+                    steps {
+                        script {
+                            // OWASP Dependency Check
+                            dependencyCheck additionalArguments: '''
+                                --scan .
+                                --format HTML
+                                --format JSON
+                            ''', odcInstallation: 'dependency-check'
+                            
+                            // Publish report
+                            publishHTML(target: [
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: '.',
+                                reportFiles: 'dependency-check-report.html',
+                                reportName: 'OWASP Dependency Check Report'
+                            ])
+                        }
+                    }
+                }
+            }
+        }
+        
+        // =====================================
+        // PERFORMANCE TESTING
+        // =====================================
+        
+        stage('Performance Tests') {
+            when {
+                allOf {
+                    expression { ENABLE_PERFORMANCE_TEST == 'true' }
+                    expression { params.SKIP_TESTS == false }
+                }
+            }
+            steps {
+                script {
+                    echo "Running performance tests..."
+                    
+                    // JMeter tests
+                    sh '''
+                        # Run JMeter test plan
+                        jmeter -n -t test-plan.jmx \
+                               -l results.jtl \
+                               -e -o jmeter-report
+                    '''
+                    
+                    // หรือใช้ Gatling
+                    // sh '''
+                    //     mvn gatling:test -Dgatling.simulationClass=BasicSimulation
+                    // '''
+                    
+                    // หรือใช้ K6
+                    // sh '''
+                    //     k6 run --out json=k6-results.json performance-test.js
+                    // '''
+                    
+                    // Analyze results
+                    performanceReport(
+                        parsers: [[$class: 'JMeterParser', glob: 'results.jtl']],
+                        errorFailedThreshold: 5,
+                        errorUnstableThreshold: 3,
+                        relativeFailedThresholdPositive: 20,
+                        relativeUnstableThresholdPositive: 10
+                    )
+                }
+            }
+        }
+        
+        // =====================================
+        // HELM DEPLOYMENT (Alternative to Kustomize)
+        // =====================================
+        
+        stage('Helm Deployment') {
+            when {
+                expression { fileExists('helm/Chart.yaml') }
+            }
+            steps {
+                script {
+                    echo "Deploying with Helm..."
+                    
+                    withCredentials([file(
+                        credentialsId: 'kubeconfig',
+                        variable: 'KUBECONFIG'
+                    )]) {
+                        sh '''
+                            # Lint Helm chart
+                            helm lint helm/
+                            
+                            # Package chart
+                            helm package helm/ --version ${VERSION}
+                            
+                            # Deploy or upgrade
+                            helm upgrade --install my-app-${DEPLOY_ENV} \
+                                helm/ \
+                                --namespace ${DEPLOY_ENV} \
+                                --create-namespace \
+                                --set image.tag=${VERSION} \
+                                --set environment=${DEPLOY_ENV} \
+                                --values helm/values-${DEPLOY_ENV}.yaml \
+                                --wait \
+                                --timeout 10m
+                            
+                            # Verify deployment
+                            helm status my-app-${DEPLOY_ENV} -n ${DEPLOY_ENV}
+                            kubectl get pods -n ${DEPLOY_ENV}
+                        '''
+                    }
+                }
+            }
+        }
+        
+        // =====================================
+        // CANARY DEPLOYMENT
+        // =====================================
+        
+        stage('Canary Deployment') {
+            when {
+                allOf {
+                    branch 'main'
+                    expression { DEPLOY_ENV == 'production' }
+                }
+            }
+            stages {
+                stage('Deploy Canary') {
+                    steps {
+                        script {
+                            echo "Deploying canary version..."
+                            
+                            sh '''
+                                # Deploy canary with 10% traffic
+                                kubectl apply -f - <<EOF
+                                apiVersion: flagger.app/v1beta1
+                                kind: Canary
+                                metadata:
+                                  name: my-app
+                                  namespace: production
+                                spec:
+                                  targetRef:
+                                    apiVersion: apps/v1
+                                    kind: Deployment
+                                    name: my-app
+                                  service:
+                                    port: 80
+                                  analysis:
+                                    interval: 1m
+                                    threshold: 10
+                                    maxWeight: 50
+                                    stepWeight: 10
+                                    metrics:
+                                    - name: request-success-rate
+                                      thresholdRange:
+                                        min: 99
+                                      interval: 1m
+                                    - name: request-duration
+                                      thresholdRange:
+                                        max: 500
+                                      interval: 1m
+                                EOF
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Monitor Canary') {
+                    steps {
+                        script {
+                            echo "Monitoring canary metrics..."
+                            
+                            timeout(time: 30, unit: 'MINUTES') {
+                                waitUntil {
+                                    def canaryStatus = sh(
+                                        script: "kubectl get canary my-app -n production -o jsonpath='{.status.phase}'",
+                                        returnStdout: true
+                                    ).trim()
+                                    
+                                    if (canaryStatus == 'Failed') {
+                                        error("Canary deployment failed!")
+                                    }
+                                    
+                                    return canaryStatus == 'Succeeded'
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                stage('Promote Canary') {
+                    input {
+                        message "Promote canary to production?"
+                        ok "Promote"
+                        parameters {
+                            booleanParam(name: 'PROMOTE', defaultValue: true, description: 'Promote canary?')
+                        }
+                    }
+                    steps {
+                        script {
+                            if (params.PROMOTE) {
+                                sh '''
+                                    # Promote canary to stable
+                                    kubectl -n production annotate canary/my-app \
+                                        flagger.app/promote=true
+                                '''
+                            } else {
+                                sh '''
+                                    # Rollback canary
+                                    kubectl -n production annotate canary/my-app \
+                                        flagger.app/rollback=true
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // =====================================
+        // INTEGRATION TESTS (E2E)
+        // =====================================
+        
+        stage('E2E Tests') {
+            when {
+                expression { params.SKIP_TESTS == false }
+            }
+            steps {
+                script {
+                    echo "Running E2E tests..."
+                    
+                    // Cypress tests
+                    sh '''
+                        # Install Cypress
+                        npm install cypress
+                        
+                        # Run Cypress tests
+                        npx cypress run \
+                            --config baseUrl=https://${DEPLOY_ENV}.myapp.com \
+                            --record \
+                            --key ${CYPRESS_RECORD_KEY}
+                    '''
+                    
+                    // หรือ Selenium tests
+                    // sh '''
+                    //     mvn test -Dtest=E2ETestSuite \
+                    //         -Dselenium.url=https://${DEPLOY_ENV}.myapp.com
+                    // '''
+                    
+                    // หรือ Playwright tests
+                    // sh '''
+                    //     npm install @playwright/test
+                    //     npx playwright test --project=chromium
+                    // '''
+                }
+            }
+            post {
+                always {
+                    // Archive test videos/screenshots
+                    archiveArtifacts artifacts: 'cypress/videos/**/*.mp4, cypress/screenshots/**/*.png', 
+                                      allowEmptyArchive: true
+                }
+            }
+        }
+        
+        // =====================================
+        // DATABASE MIGRATIONS
+        // =====================================
+        
+        stage('Database Migration') {
+            when {
+                expression { fileExists('migrations/') }
+            }
+            steps {
+                script {
+                    echo "Running database migrations..."
+                    
+                    withCredentials([
+                        string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'db-host', variable: 'DB_HOST')
+                    ]) {
+                        // Flyway migration
+                        sh '''
+                            flyway -url=jdbc:postgresql://${DB_HOST}:5432/myapp_${DEPLOY_ENV} \
+                                   -user=dbuser \
+                                   -password=${DB_PASSWORD} \
+                                   -locations=filesystem:migrations \
+                                   migrate
+                        '''
+                        
+                        // หรือ Liquibase
+                        // sh '''
+                        //     liquibase \
+                        //         --url=jdbc:postgresql://${DB_HOST}:5432/myapp_${DEPLOY_ENV} \
+                        //         --username=dbuser \
+                        //         --password=${DB_PASSWORD} \
+                        //         --changeLogFile=changelog.xml \
+                        //         update
+                        // '''
+                        
+                        // หรือ Django migrations
+                        // sh '''
+                        //     python manage.py migrate --database=${DEPLOY_ENV}
+                        // '''
+                    }
+                }
+            }
+        }
+        
+        // =====================================
+        // NOTIFICATIONS & DOCUMENTATION
+        // =====================================
+        
+        stage('Update Documentation') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    // Generate API documentation
+                    if (fileExists('openapi.yaml')) {
+                        sh '''
+                            # Generate API docs with Swagger
+                            docker run --rm -v ${PWD}:/local swaggerapi/swagger-codegen-cli generate \
+                                -i /local/openapi.yaml \
+                                -l html2 \
+                                -o /local/api-docs
+                        '''
+                    }
+                    
+                    // Update Confluence
+                    // confluencePublisher(
+                    //     siteName: CONFLUENCE_SITE,
+                    //     pageName: "Release Notes - ${VERSION}",
+                    //     spaceKey: 'PROJ',
+                    //     parentId: '12345',
+                    //     content: generateReleaseNotes()
+                    // )
+                    
+                    // Create Jira release
+                    // jiraNewVersion(
+                    //     version: VERSION,
+                    //     project: 'PROJ',
+                    //     site: JIRA_SITE
+                    // )
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            script {
+                // Update deployment tracking
+                updateDeploymentTracking('success')
+                
+                // Create Git tag
+                if (BRANCH_NAME == 'main') {
+                    sshagent([GIT_CREDENTIALS_ID]) {
+                        sh """
+                            git tag -a ${VERSION} -m "Release ${VERSION}"
+                            git push origin ${VERSION}
+                        """
+                    }
+                }
+                
+                // Trigger downstream jobs
+                // build job: 'integration-tests', 
+                //       parameters: [string(name: 'VERSION', value: VERSION)],
+                //       wait: false
+            }
+        }
+        
+        failure {
+            script {
+                // Create incident
+                // createIncident()
+                
+                // Rollback if production deployment failed
+                if (DEPLOY_ENV == 'production') {
+                    input message: "Rollback production deployment?", ok: "Rollback"
+                    triggerRollback()
+                }
+            }
+        }
+    }
+}
+
+// =====================================
+// HELPER FUNCTIONS
+// =====================================
+
+def determineEnvironment() {
+    if (BRANCH_NAME == 'main' || BRANCH_NAME == 'master') {
+        return 'production'
+    } else if (BRANCH_NAME == 'staging') {
+        return 'staging'
+    } else if (BRANCH_NAME == 'develop') {
+        return 'development'
+    } else {
+        return 'development'
+    }
+}
+
+def generateVersion() {
+    def dateFormat = new SimpleDateFormat("yyyyMMdd")
+    def date = dateFormat.format(new Date())
+    
+    if (BRANCH_NAME == 'main') {
+        // Semantic versioning for production
+        def lastTag = sh(
+            script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+            returnStdout: true
+        ).trim()
+        
+        def (major, minor, patch) = lastTag.tokenize('.').collect { it.replaceAll('[^0-9]', '') as Integer }
+        patch++
+        
+        return "v${major}.${minor}.${patch}"
+    } else {
+        // Date-based versioning for other branches
+        return "${BRANCH_NAME}-${date}-${BUILD_NUMBER}"
+    }
+}
+
+def updateDeploymentTracking(status) {
+    def deployment = [
+        environment: DEPLOY_ENV,
+        version: VERSION,
+        status: status,
+        timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+        buildNumber: BUILD_NUMBER,
+        branch: BRANCH_NAME,
+        commitId: GIT_COMMIT
+    ]
+    
+    writeJSON file: 'deployment.json', json: deployment
+    
+    // Send to monitoring system
+    // sh """
+    //     curl -X POST https://monitoring.example.com/api/deployments \
+    //         -H "Content-Type: application/json" \
+    //         -d @deployment.json
+    // """
+}
+
+def triggerRollback() {
+    build job: env.JOB_NAME,
+          parameters: [
+              booleanParam(name: 'ROLLBACK', value: true),
+              string(name: 'ROLLBACK_VERSION', value: env.LAST_STABLE_VERSION)
+          ],
+          wait: false
+}
+
+def generateReleaseNotes() {
+    def changes = currentBuild.changeSets.collect { changeSet ->
+        changeSet.items.collect { change ->
+            "- ${change.msg} (${change.author})"
+        }
+    }.flatten().join('\n')
+    
+    return """
+    # Release ${VERSION}
+    
+    ## Changes
+    ${changes}
+    
+    ## Build Information
+    - Build Number: ${BUILD_NUMBER}
+    - Branch: ${BRANCH_NAME}
+    - Commit: ${GIT_COMMIT}
+    - Date: ${BUILD_TIMESTAMP}
+    """
+}
