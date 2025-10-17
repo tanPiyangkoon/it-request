@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const multer = require('multer');
 const path = require('path');
+const bcrypt = require('bcrypt');
 
 // ตั้งค่าที่เก็บไฟล์ (upload ไปที่ ./uploads)
 const storage = multer.diskStorage({
@@ -14,30 +15,125 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + '-' + file.originalname);
   }
 });
-const upload = multer({ storage });
 
-// Mock users for login (in real app, use DB)
-const users = [
-  { id: 'u001', name: 'User 1', role: 'user', password: 'user123' },
-  { id: 'u002', name: 'User 2', role: 'user', password: 'user456' },
-  { id: 'admin', name: 'Admin', role: 'admin', password: 'admin123' }
-];
+// File upload validation
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
 
-// Login endpoint (เช็คกับ DB จริง)
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed (jpeg, jpg, png, gif)'));
+    }
+  }
+});
+
+// Login endpoint with bcrypt password verification
 router.post('/login', async (req, res) => {
   const { userId, password } = req.body;
+
+  // Input validation
+  if (!userId || !password) {
+    return res.status(400).json({ success: false, message: 'กรุณากรอก User ID และรหัสผ่าน' });
+  }
+
   try {
     const result = await pool.query(
-      'SELECT user_id, name, role, email FROM users WHERE user_id = $1 AND password = $2',
-      [userId, password]
+      'SELECT user_id, name, role, email, password FROM users WHERE user_id = $1',
+      [userId]
     );
-    if (result.rows.length > 0) {
-      res.json({ success: true, user: result.rows[0] });
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, message: 'รหัสผ่านหรือผู้ใช้ไม่ถูกต้อง' });
+    }
+
+    const user = result.rows[0];
+
+    // Compare password with hashed password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (passwordMatch) {
+      // Don't send password back to client
+      delete user.password;
+      res.json({ success: true, user });
     } else {
       res.status(401).json({ success: false, message: 'รหัสผ่านหรือผู้ใช้ไม่ถูกต้อง' });
     }
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ success: false, message: 'Database error', details: err.message });
+  }
+});
+
+// User registration endpoint
+router.post('/register', async (req, res) => {
+  const { userId, name, email, password, role } = req.body;
+
+  // Input validation
+  if (!userId || !name || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'กรุณากรอกข้อมูลให้ครบ: User ID, ชื่อ, Email, รหัสผ่าน'
+    });
+  }
+
+  // Validate role
+  const userRole = role || 'user';
+  if (!['user', 'admin'].includes(userRole)) {
+    return res.status(400).json({ success: false, message: 'Role ไม่ถูกต้อง' });
+  }
+
+  // Password strength validation
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'
+    });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT user_id FROM users WHERE user_id = $1 OR email = $2',
+      [userId, email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'User ID หรือ Email นี้ถูกใช้งานแล้ว'
+      });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Insert new user
+    const result = await pool.query(
+      'INSERT INTO users (user_id, name, role, email, password) VALUES ($1, $2, $3, $4, $5) RETURNING user_id, name, role, email, created_at',
+      [userId, name, userRole, email, hashedPassword]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'สร้างบัญชีผู้ใช้สำเร็จ',
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Database error',
+      details: err.message
+    });
   }
 });
 
