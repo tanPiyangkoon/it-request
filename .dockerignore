@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Kubernetes
+k8s/
+argocd/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Uploads (don't include in image)
+uploads/
+
+# Documentation
+README.md
+*.md
+!SECURITY_SETUP.md
+
+# CI/CD
+jenkinsfile
+.github/
+.gitlab-ci.yml
