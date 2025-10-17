@@ -12,6 +12,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api', requestRoutes);
 
-app.listen(3001, () => {
-  console.log('Backend running at http://localhost:3001');
+app.listen(3001, '0.0.0.0', () => {
+  console.log('Backend running at http://0.0.0.0:3001');
 });
+
