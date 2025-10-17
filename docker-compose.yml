@@ -4,15 +4,15 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_DB: it_request_db
-      POSTGRES_USER: itadmin
-      POSTGRES_PASSWORD: itpassword
+      POSTGRES_DB: ${POSTGRES_DB:-it_request_db}
+      POSTGRES_USER: ${POSTGRES_USER:-itadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD in .env file}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U itadmin"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-itadmin}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,13 +22,14 @@ services:
     restart: always
     environment:
       - PGHOST=db
-      - PGUSER=itadmin
-      - PGPASSWORD=itpassword
-      - PGDATABASE=it_request_db
+      - PGUSER=${POSTGRES_USER:-itadmin}
+      - PGPASSWORD=${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD in .env file}
+      - PGDATABASE=${POSTGRES_DB:-it_request_db}
       - PGPORT=5432
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${BACKEND_PORT:-3001}
     ports:
-      - "3001:3001"
+      - "${BACKEND_PORT:-3001}:3001"
     depends_on:
       db:
         condition: service_healthy
@@ -41,7 +42,7 @@ services:
     image: nginx:alpine
     restart: always
     ports:
-      - "8080:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - backend
     volumes:

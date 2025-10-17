@@ -1,2 +1,14 @@
 # Ignore node_modules and other dependencies
 node_modules/
+
+# Environment variables - NEVER commit these files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Uploads directory
+backend/uploads/*
+!backend/uploads/.gitkeep
