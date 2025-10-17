@@ -34,9 +34,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./backend/uploads:/usr/src/app/uploads
-    working_dir: /usr/src/app
-    command: npm start
+      - ./backend/uploads:/app/uploads
 
   frontend:
     image: nginx:alpine
