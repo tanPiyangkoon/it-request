@@ -11,11 +11,11 @@ spec:
   source:
     repoURL: https://github.com/tanPiyangkoon/it-request.git # ⚠️ แก้เป็น repo URL ของคุณ
     targetRevision: production # branch name
-    path: k8s/overlays/production
+    path: overlays/production
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: it-request
+    namespace: production
 
   syncPolicy:
     automated:
