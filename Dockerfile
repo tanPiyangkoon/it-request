@@ -24,5 +24,5 @@ RUN npm ci --omit=dev
 COPY backend/ ./
 
 EXPOSE 3001
-CMD ["node", "backend/server.js"]
+CMD ["node", "server.js"]
 
