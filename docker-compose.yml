@@ -1,37 +1,17 @@
 services:
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-it_request_db}
-      POSTGRES_USER: ${POSTGRES_USER:-it_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD in .env file}
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-it_admin}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build: ./backend
     restart: always
     environment:
-      - PGHOST=db
+      - PGHOST=${PGHOST:-192.168.2.50}
       - PGUSER=${POSTGRES_USER:-it_admin}
       - PGPASSWORD=${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD in .env file}
       - PGDATABASE=${POSTGRES_DB:-it_request_db}
-      - PGPORT=5432
+      - PGPORT=${PGPORT:-5432}
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=${BACKEND_PORT:-3001}
     ports:
       - "${BACKEND_PORT:-3001}:3001"
-    depends_on:
-      db:
-        condition: service_healthy
     volumes:
       - ./backend/uploads:/app/uploads
 
@@ -45,6 +25,3 @@ services:
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-
-volumes:
-  db_data:
