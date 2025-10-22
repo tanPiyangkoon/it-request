@@ -7,7 +7,14 @@ const requestRoutes = require('./routes/requests');
 app.use(cors());
 app.use(express.json());
 
-// ให้ static file สำหรับรูปที่ upload
+app.get('/', (req, res) => {
+  res.json({ 
+    message: "🎉 IT Request Backend API", 
+    version: "1.0.0",
+    endpoints: ["/api/requests", "/api/health"]
+  });
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api', requestRoutes);
