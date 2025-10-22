@@ -11,7 +11,7 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=${BACKEND_PORT:-3001}
     ports:
-      - "${BACKEND_PORT:-3001}:3001"
+      - "0.0.0.0:${BACKEND_PORT:-3001}:3001"
     volumes:
       - ./backend/uploads:/app/uploads
 
@@ -19,7 +19,7 @@ services:
     image: nginx:alpine
     restart: always
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "0.0.0.0:${FRONTEND_PORT:-8080}:80"
     depends_on:
       - backend
     volumes:
